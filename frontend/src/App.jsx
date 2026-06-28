@@ -1,13 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import InputForm from './components/InputForm';
 import ResultDashboard from './components/ResultDashboard';
-import { ArrowLeft, RefreshCw, BarChart2 } from 'lucide-react';
+import Login from './components/Login';
+import Register from './components/Register';
+import { ArrowLeft, BarChart2, LogOut, User as UserIcon } from 'lucide-react';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authView, setAuthView] = useState('login'); // 'login' or 'register'
+  
   const [loading, setLoading] = useState(false);
   const [searchParams, setSearchParams] = useState({ percentile: '', category: '' });
   const [predictions, setPredictions] = useState(null);
   const [error, setError] = useState('');
+
+  // Check if user session exists on load
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        setCurrentUser(JSON.parse(savedUser));
+      } catch (e) {
+        localStorage.removeItem('user');
+      }
+    }
+  }, []);
+
+  const handleLogin = (user) => {
+    setCurrentUser(user);
+    setError('');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    setCurrentUser(null);
+    setPredictions(null);
+    setError('');
+  };
 
   const handlePredict = async ({ percentile, category }) => {
     setLoading(true);
@@ -62,51 +91,100 @@ export default function App() {
               <span className="text-xs text-gray-400 block font-mono">Admission &amp; Cutoff Analytics</span>
             </div>
           </div>
-          {predictions && (
-            <button
-              onClick={handleBack}
-              className="flex items-center gap-2 text-xs font-semibold text-gray-400 hover:text-white bg-slate-900 hover:bg-slate-800 border border-gray-800 py-2 px-4 rounded-xl transition-all cursor-pointer"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Modify Details</span>
-            </button>
+          
+          {currentUser && (
+            <div className="flex items-center gap-3">
+              {/* User Meta */}
+              <div className="hidden sm:flex items-center gap-2 bg-slate-900 border border-gray-800 py-1.5 px-3 rounded-xl">
+                <UserIcon className="h-4 w-4 text-blue-400" />
+                <span className="text-xs text-gray-300 font-semibold">{currentUser.username}</span>
+              </div>
+              
+              {/* Conditional Back/Modify button */}
+              {predictions && (
+                <button
+                  onClick={handleBack}
+                  className="flex items-center gap-1 text-xs font-semibold text-gray-400 hover:text-white bg-slate-900 hover:bg-slate-800 border border-gray-800 py-2 px-3 rounded-xl transition-all cursor-pointer"
+                >
+                  <ArrowLeft className="h-4.5 w-4.5" />
+                  <span className="hidden sm:inline">Modify Details</span>
+                </button>
+              )}
+
+              {/* Logout button */}
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 text-xs font-semibold text-red-400 hover:text-red-300 bg-red-950/20 hover:bg-red-950/40 border border-red-900/30 py-2 px-3.5 rounded-xl transition-all cursor-pointer"
+              >
+                <LogOut className="h-4.5 w-4.5" />
+                <span>Logout</span>
+              </button>
+            </div>
           )}
         </header>
 
         {/* Content Box */}
         <main className="max-w-6xl mx-auto flex flex-col justify-center min-h-[60vh]">
-          {error && (
-            <div className="glassmorphism p-6 rounded-2xl border border-red-900/30 text-center max-w-lg mx-auto mb-6">
-              <span className="text-danger font-bold text-sm block mb-1">Server Error Connection</span>
-              <p className="text-xs text-gray-400 mb-4">{error}</p>
-              <button
-                onClick={handleBack}
-                className="bg-slate-900 hover:bg-slate-800 border border-gray-800 text-xs px-4 py-2 rounded-xl text-gray-300 font-semibold cursor-pointer"
-              >
-                Go Back
-              </button>
-            </div>
-          )}
-
-          {!predictions && !error ? (
-            <div className="space-y-8 animate-fade-in">
+          {/* Unauthenticated View */}
+          {!currentUser ? (
+            <div className="space-y-8 py-8">
               <div className="text-center space-y-3">
                 <h2 className="text-3xl sm:text-4xl font-extrabold font-sans text-white tracking-tight leading-none">
                   Predict Your College Admission Chances
                 </h2>
                 <p className="text-sm sm:text-base text-gray-400 max-w-2xl mx-auto leading-relaxed">
-                  Enter your MHT CET percentile and reservation category. Our algorithm maps historical cutoff thresholds and classfies your admission probability into Safe, Moderate, and Dream buckets.
+                  Register or login below to enter your scores and unlock the dashboard recommendation algorithm.
                 </p>
               </div>
-              <InputForm onSubmit={handlePredict} loading={loading} />
+              {authView === 'login' ? (
+                <Login
+                  onLogin={handleLogin}
+                  onSwitchToRegister={() => setAuthView('register')}
+                />
+              ) : (
+                <Register
+                  onRegisterSuccess={() => setAuthView('login')}
+                  onSwitchToLogin={() => setAuthView('login')}
+                />
+              )}
             </div>
-          ) : predictions && !error ? (
-            <ResultDashboard
-              predictions={predictions}
-              percentile={searchParams.percentile}
-              category={searchParams.category}
-            />
-          ) : null}
+          ) : (
+            /* Authenticated View */
+            <div className="space-y-6">
+              {error && (
+                <div className="glassmorphism p-6 rounded-2xl border border-red-900/30 text-center max-w-lg mx-auto mb-6">
+                  <span className="text-danger font-bold text-sm block mb-1">Server Error Connection</span>
+                  <p className="text-xs text-gray-400 mb-4">{error}</p>
+                  <button
+                    onClick={handleBack}
+                    className="bg-slate-900 hover:bg-slate-800 border border-gray-800 text-xs px-4 py-2 rounded-xl text-gray-300 font-semibold cursor-pointer"
+                  >
+                    Go Back
+                  </button>
+                </div>
+              )}
+
+              {!predictions && !error ? (
+                <div className="space-y-8 animate-fade-in">
+                  <div className="text-center space-y-3">
+                    <h2 className="text-2xl sm:text-3xl font-extrabold font-sans text-white tracking-tight">
+                      Welcome, {currentUser.username}!
+                    </h2>
+                    <p className="text-sm text-gray-400 max-w-xl mx-auto">
+                      Fill in your MHT CET details below to calculate safe, moderate, and dream college branches.
+                    </p>
+                  </div>
+                  <InputForm onSubmit={handlePredict} loading={loading} />
+                </div>
+              ) : predictions && !error ? (
+                <ResultDashboard
+                  predictions={predictions}
+                  percentile={searchParams.percentile}
+                  category={searchParams.category}
+                />
+              ) : null}
+            </div>
+          )}
         </main>
       </div>
 
